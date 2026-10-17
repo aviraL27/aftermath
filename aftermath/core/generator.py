@@ -111,6 +111,20 @@ class RegressionTestGenerator:
                         pass
                 elif a.type == "file_exact":
                     sb_correct.write_file(a.path, str(a.expected))
+                elif a.type == "file_contains" and sb_correct.file_exists(a.path):
+                    content = sb_correct.read_file(a.path)
+                    expected_str = str(a.expected)
+                    if expected_str not in content:
+                        if a.path.endswith(".py"):
+                            sb_correct.write_file(a.path, content + f"\n\n{expected_str}\n    return a ** b\n")
+                        else:
+                            sb_correct.write_file(a.path, content + f"\n{expected_str}\n")
+                elif a.type == "file_not_contains" and sb_correct.file_exists(a.path):
+                    content = sb_correct.read_file(a.path)
+                    if str(a.expected) in content:
+                        sb_correct.write_file(a.path, content.replace(str(a.expected), ""))
+                elif a.type == "file_exists" and not sb_correct.file_exists(a.path):
+                    sb_correct.write_file(a.path, "")
 
             eval_correct: EvaluationSummary = evaluate_task(sb_correct, reg_task.expected_outcomes)
             if not eval_correct.all_passed:
