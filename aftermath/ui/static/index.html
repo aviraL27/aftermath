@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aftermath — AI Agent Regression Testing Harness</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="brand-mark">AM</div>
+        <div class="brand-title">Aftermath</div>
+        <span class="brand-tag">Agent Reliability Harness</span>
+      </div>
+
+      <div class="system-status-pills" id="system-status-container">
+        <div class="status-pill active" id="status-gemma">Gemma 4: Google API (2.4s) / Ollama Fallback</div>
+        <div class="status-pill active" id="status-mistral">Mistral: open-mistral-7b (Apache-2.0)</div>
+      </div>
+    </header>
+
+    <!-- Main View -->
+    <div class="main-view">
+      <!-- Sidebar / Tasks List -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="section-label">Test Tasks & Suites</div>
+        </div>
+        <div class="task-list" id="task-list-container">
+          <div style="padding: 1rem; color: var(--text-muted); font-size: 12px;">Loading tasks...</div>
+        </div>
+      </aside>
+
+      <!-- Workspace Area -->
+      <main class="workspace-area">
+        <!-- Control Bar -->
+        <div class="control-bar">
+          <div class="controls-group">
+            <label class="section-label" style="margin-right: 4px;">Agent / Model:</label>
+            <select class="select-control" id="model-select">
+              <option value="gemma4">Gemma 4 (Auto: Google API / Ollama Fallback)</option>
+              <option value="mistral">Mistral (open-mistral-7b, Apache-2.0)</option>
+              <option value="mock-buggy" selected>Mock Agent (Buggy — Reproduces Invariant Violation)</option>
+              <option value="mock-fixed">Mock Agent (Fixed — Invariants Preserved)</option>
+            </select>
+          </div>
+
+          <div class="controls-group">
+            <button class="btn btn-secondary" id="btn-compare">Cross-Model Compare</button>
+            <button class="btn btn-primary" id="btn-run">Execute Task</button>
+          </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-grid" id="main-content">
+          <!-- Active Task Card -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title" id="active-task-name">Select a Task to Begin</div>
+              <span class="badge-status" id="task-badge" style="display:none;">Regression Test</span>
+            </div>
+            <div class="panel-body">
+              <div id="active-task-desc" style="color: var(--text-secondary); margin-bottom: 12px;">
+                Choose a task from the sidebar to inspect its instructions and invariants.
+              </div>
+              <div class="section-label" style="margin-bottom: 6px;">Instruction to Agent</div>
+              <div class="code-box" id="active-task-instruction" style="margin-bottom: 1rem;">-</div>
+            </div>
+          </div>
+
+          <!-- Execution Result & Evaluation Panel -->
+          <div class="panel" id="result-panel" style="display: none;">
+            <div class="panel-header">
+              <div class="panel-title">Execution Evaluation & Invariants</div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <span class="badge-status" id="run-status-badge">FAILED</span>
+                <button class="btn btn-primary" id="btn-generate-test" style="padding: 4px 10px; font-size: 11px;">Generate Regression Test</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="generate-message" style="margin-bottom: 12px; font-size: 12px; display: none;"></div>
+              <div class="section-label" style="margin-bottom: 8px;">Assertions & Invariants Matrix</div>
+              <div class="assertions-list" id="assertions-container"></div>
+            </div>
+          </div>
+
+          <!-- Workspace Unified Diff -->
+          <div class="panel" id="diff-panel" style="display: none;">
+            <div class="panel-header">
+              <div class="panel-title">Workspace Changes (Unified Diff)</div>
+              <span class="section-label" id="diff-summary">0 lines changed</span>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+              <div class="code-box" id="diff-content" style="border: none; border-radius: 0; max-height: 280px;"></div>
+            </div>
+          </div>
+
+          <!-- Execution Step Trace -->
+          <div class="panel" id="trace-panel" style="display: none;">
+            <div class="panel-header">
+              <div class="panel-title">Agent Execution Trace Timeline</div>
+              <span class="section-label" id="trace-duration">0.00s</span>
+            </div>
+            <div class="panel-body" id="trace-steps-container" style="padding: 0;"></div>
+          </div>
+
+          <!-- Cross-Model Comparison Matrix Modal / Panel -->
+          <div class="panel" id="compare-panel" style="display: none;">
+            <div class="panel-header">
+              <div class="panel-title">Cross-Model Comparison: Gemma 4 vs Mistral</div>
+            </div>
+            <div class="panel-body" id="compare-container"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+

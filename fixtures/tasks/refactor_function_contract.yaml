@@ -1,0 +1,31 @@
+id: "task-add-power-function"
+name: "Add power function preserving existing functions"
+description: "Add a power function def power(a: int, b: int) -> int to calculator.py without breaking existing functions or introducing syntax errors."
+instruction: "In calculator.py, add a new function 'def power(a: int, b: int) -> int:' that computes a ** b. Do not remove or modify the existing functions add, subtract, multiply, or divide."
+workspace_fixture: "../workspaces/code_sample"
+max_steps: 5
+tools:
+  - "read_file"
+  - "write_file"
+  - "edit_file"
+  - "list_files"
+expected_outcomes:
+  assertions:
+    - type: "file_exists"
+      path: "calculator.py"
+    - type: "ast_syntax_valid"
+      path: "calculator.py"
+    - type: "file_contains"
+      path: "calculator.py"
+      expected: "def power(a: int, b: int) -> int:"
+  invariants:
+    - type: "file_contains"
+      path: "calculator.py"
+      expected: "def add(a: int, b: int) -> int:"
+    - type: "file_contains"
+      path: "calculator.py"
+      expected: "def divide(a: int, b: int) -> float:"
+    - type: "file_contains"
+      path: "calculator.py"
+      expected: "Cannot divide by zero"
+
