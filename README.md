@@ -3,6 +3,9 @@
 > **An Open-Source Regression Testing Harness for AI Agents**  
 > *When an AI agent breaks something, Aftermath turns that mistake into an automated, validated regression test that prevents the same failure from going unnoticed again.*
 
+**Live Deployment (Render):** [https://aftermath-1494.onrender.com](https://aftermath-1494.onrender.com)  
+**Static UI Mirror:** [https://aftermath-ui.onrender.com](https://aftermath-ui.onrender.com)
+
 ---
 
 ## The Problem
