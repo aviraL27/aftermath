@@ -292,6 +292,24 @@ python -m aftermath.cli generate-test .aftermath_traces/trace_task-add-power-fun
 
 ---
 
+### 3. Dedicated Interactive Demo Scenarios
+
+Aftermath ships with 3 distinct, parameterizable demo scripts demonstrating different reliability dimensions:
+
+| Demo Script | Scenario & Reliability Dimension | Core Aspect Tested | Command |
+| :--- | :--- | :--- | :--- |
+| **`demo_config_invariants.py`** | **Configuration & Security Protection** | JSON state preservation, detecting silent deletion of JWT secrets and server ports. | `python demo_config_invariants.py` |
+| **`demo_e2b_cloud_sandbox.py`** | **E2B Micro-VM & Live Pytest Suite** | Hardware-isolated Linux VM runtime, remote command execution, and live `pytest` test suite invariants. | `python demo_e2b_cloud_sandbox.py` |
+| **`demo_code_refactor_ast.py`** | **Code Refactoring & AST Syntax Contracts** | Python AST parse tree validation, preserving public API signatures and zero-division contracts in `calculator.py`. | `python demo_code_refactor_ast.py` |
+| **`demo.py`** | **Master Interactive Suite** | Interactive menu to select and execute any demo or run all 3 sequentially. | `python demo.py` |
+
+All demo scripts are fully dynamic and non-hardcoded:
+- `--model [mock-buggy|mock-fixed|gemma4|mistral]`
+- `--backend [local|e2b]`
+- `--non-interactive` (runs seamlessly without pauses, ideal for CI/CD)
+
+---
+
 ## Defining a Task Specification
 
 Tasks are declared in structured YAML:

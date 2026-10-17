@@ -54,4 +54,5 @@ Thumbs.db
 .aftermath_repro/
 temp_workspaces/
 *.tmp
-
+aftermath/generated_tests/fixtures/
+aftermath/generated_tests/regression_*.yaml
