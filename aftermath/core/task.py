@@ -15,12 +15,17 @@ class AssertionSpec(BaseModel):
         "json_value_equals",
         "json_key_preserved",
         "ast_syntax_valid",
-        "regex_match"
+        "regex_match",
+        "command_exit_code",
+        "command_stdout_contains",
+        "command_stdout_not_contains"
     ]
-    path: str
+    path: str = ""
     key_path: Optional[str] = None
     expected: Optional[Any] = None
     pattern: Optional[str] = None
+    command: Optional[str] = None
+    timeout: Optional[int] = 30
     description: Optional[str] = None
 
 class ExpectedOutcomes(BaseModel):
@@ -42,7 +47,9 @@ class TaskDefinition(BaseModel):
     description: str = ""
     instruction: str
     workspace_fixture: str  # Path relative to task file or root
-    tools: List[str] = Field(default_factory=lambda: ["read_file", "write_file", "edit_file", "list_files"])
+    sandbox_backend: Literal["local", "e2b"] = "local"
+    e2b_template: Optional[str] = None
+    tools: List[str] = Field(default_factory=lambda: ["read_file", "write_file", "edit_file", "list_files", "run_command"])
     max_steps: int = 10
     model_config_override: Optional[ModelConfig] = None
     expected_outcomes: ExpectedOutcomes = Field(default_factory=ExpectedOutcomes)

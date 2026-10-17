@@ -6,7 +6,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 from aftermath.core.trace import RunTrace
 
-console = Console()
+console = Console(legacy_windows=False)
 
 class Reporter:
     """Produces clean CLI reports, comparisons, and exports."""

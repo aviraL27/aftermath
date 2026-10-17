@@ -51,6 +51,7 @@ Thumbs.db
 # Aftermath temporary execution workspaces and traces
 .aftermath_cache/
 .aftermath_traces/
+.aftermath_repro/
 temp_workspaces/
 *.tmp
 

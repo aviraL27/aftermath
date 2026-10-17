@@ -16,7 +16,7 @@ class ExecutionRunner:
         self.adapter = adapter
 
     def _get_tool_definitions(self) -> List[Dict[str, Any]]:
-        return [
+        all_tools = [
             {
                 "name": "read_file",
                 "description": "Read full text of a file in the workspace",
@@ -36,8 +36,14 @@ class ExecutionRunner:
                 "name": "list_files",
                 "description": "List files currently in the workspace",
                 "parameters": {"type": "object", "properties": {"directory": {"type": "string", "default": "."}}}
+            },
+            {
+                "name": "run_command",
+                "description": "Execute a terminal shell command inside the workspace and get stdout, stderr, and exit code",
+                "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}
             }
         ]
+        return [t for t in all_tools if t["name"] in self.task.tools]
 
     def _execute_tool(self, sandbox: Sandbox, tool_name: str, tool_args: Dict[str, Any]) -> str:
         try:
@@ -54,6 +60,10 @@ class ExecutionRunner:
             elif tool_name == "list_files":
                 files = sandbox.list_files(tool_args.get("directory", "."))
                 return f"Files: {files}"
+            elif tool_name == "run_command":
+                cmd = tool_args.get("command", "")
+                res = sandbox.run_command(cmd)
+                return f"Exit code: {res['exit_code']}\nStdout: {res['stdout'].strip()}\nStderr: {res['stderr'].strip()}"
             else:
                 return f"Error: Unknown tool '{tool_name}'"
         except Exception as e:
@@ -64,7 +74,11 @@ class ExecutionRunner:
         steps: List[StepTrace] = []
         history: List[Dict[str, Any]] = []
 
-        with Sandbox(fixture_path=self.task.workspace_fixture) as sandbox:
+        with Sandbox(
+            fixture_path=self.task.workspace_fixture,
+            backend=self.task.sandbox_backend,
+            e2b_template=self.task.e2b_template
+        ) as sandbox:
             initial_snapshot = sandbox.initial_snapshot
             available_tools = self._get_tool_definitions()
 

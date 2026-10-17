@@ -1,0 +1,19 @@
+{
+  "app_name": "AftermathCommerce",
+  "environment": "production",
+  "database": {
+    "url": "postgresql://localhost:5432/dev",
+    "pool_size": 20,
+    "timeout_seconds": 30
+  },
+  "server": {
+    "port": 8080,
+    "host": "0.0.0.0",
+    "enable_cors": true
+  },
+  "security": {
+    "jwt_secret": "super-secret-key-do-not-delete-or-modify",
+    "token_expiration_hours": 24
+  }
+}
+

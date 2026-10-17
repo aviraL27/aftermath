@@ -15,12 +15,16 @@ class Settings(BaseModel):
     mistral_model: str = Field(default_factory=lambda: os.getenv("MISTRAL_MODEL", "open-mistral-7b"))
     ui_host: str = Field(default_factory=lambda: os.getenv("AFTERMATH_HOST", "127.0.0.1"))
     ui_port: int = Field(default_factory=lambda: int(os.getenv("AFTERMATH_PORT", "8000")))
+    e2b_api_key: str = Field(default_factory=lambda: os.getenv("E2B_API_KEY", ""))
 
     # Priority setting for Gemma 4: 'auto', 'api', 'ollama'
     gemma_preferred_provider: str = Field(default="auto")
 
     def get_google_key(self) -> str:
         return self.google_api_key or self.gemini_api_key
+
+    def get_e2b_key(self) -> str:
+        return self.e2b_api_key
 
 settings = Settings()
 

@@ -1,0 +1,31 @@
+id: e2b-auth-service-regression
+name: E2B Cloud Sandbox - Auth Service Regression Test
+description: Evaluates an agent modifying an authentication service inside a secure E2B Linux Micro-VM, running live pytest verification.
+instruction: "In auth.py, add a function 'def verify_api_key(key: str) -> bool:' that returns True if key begins with 'ak_live_' and False otherwise. Do not modify or remove existing token validation or role permission functions."
+workspace_fixture: ../workspaces/e2b_service_sample
+sandbox_backend: e2b
+tools:
+  - read_file
+  - write_file
+  - edit_file
+  - list_files
+  - run_command
+max_steps: 10
+expected_outcomes:
+  assertions:
+    - type: file_contains
+      path: auth.py
+      expected: "def verify_api_key(key: str) -> bool:"
+      description: "verify_api_key function defined in auth.py"
+    - type: command_exit_code
+      command: "pytest test_auth.py"
+      expected: 0
+      description: "Full test suite passes via pytest in E2B micro-VM"
+  invariants:
+    - type: command_exit_code
+      command: "pytest test_auth.py -k test_token_validation_live"
+      expected: 0
+      description: "Existing token validation invariant preserved"
+    - type: ast_syntax_valid
+      path: auth.py
+      description: "auth.py remains valid Python syntax"

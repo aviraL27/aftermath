@@ -63,6 +63,47 @@ def evaluate_single_assertion(sandbox: Sandbox, spec: AssertionSpec, is_invarian
                 is_invariant=is_invariant
             )
 
+        elif spec.type == "command_exit_code":
+            cmd = spec.command or spec.path
+            res = sandbox.run_command(cmd, timeout=spec.timeout or 30)
+            passed = (res["exit_code"] == spec.expected)
+            return AssertionResult(
+                spec=spec,
+                passed=passed,
+                actual_value=res["exit_code"],
+                expected_value=spec.expected,
+                error_message=None if passed else f"Command '{cmd}' exited with code {res['exit_code']} (expected {spec.expected}). Stderr: {res.get('stderr', '')[:200]}",
+                is_invariant=is_invariant
+            )
+
+        elif spec.type == "command_stdout_contains":
+            cmd = spec.command or spec.path
+            res = sandbox.run_command(cmd, timeout=spec.timeout or 30)
+            exp = str(spec.expected)
+            passed = (exp in res.get("stdout", ""))
+            return AssertionResult(
+                spec=spec,
+                passed=passed,
+                actual_value=res.get("stdout", "")[:100],
+                expected_value=f"Contains: {exp}",
+                error_message=None if passed else f"Command '{cmd}' stdout did not contain '{exp}'. Got: {res.get('stdout', '')[:200]}",
+                is_invariant=is_invariant
+            )
+
+        elif spec.type == "command_stdout_not_contains":
+            cmd = spec.command or spec.path
+            res = sandbox.run_command(cmd, timeout=spec.timeout or 30)
+            exp = str(spec.expected)
+            passed = (exp not in res.get("stdout", ""))
+            return AssertionResult(
+                spec=spec,
+                passed=passed,
+                actual_value=res.get("stdout", "")[:100],
+                expected_value=f"Not contains: {exp}",
+                error_message=None if passed else f"Command '{cmd}' stdout contained forbidden content: '{exp}'.",
+                is_invariant=is_invariant
+            )
+
         if not sandbox.file_exists(spec.path):
             return AssertionResult(
                 spec=spec,

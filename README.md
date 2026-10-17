@@ -1,223 +1,344 @@
 # Aftermath
 
 > **An Open-Source Regression Testing Harness for AI Agents**  
-> *When an AI agent breaks something, Aftermath turns that mistake into a regression test that prevents the same failure from going unnoticed again.*
+> *When an AI agent breaks something, Aftermath turns that mistake into an automated, validated regression test that prevents the same failure from going unnoticed again.*
 
 ---
 
 ## The Problem
 
-AI agents break code and configurations in subtle ways:
-- An agent updates a database connection string in a config file, but inadvertently wipes out a JWT secret or port configuration.
-- An agent refactors a utility function to add new behavior, but violates existing contract invariants or deletes helper methods.
-- Today, when an agent makes such a mistake, the failure disappears into logs or terminal scrollback. When prompts or models are updated, developers have no systematic way of knowing if previous mistakes have returned.
+AI coding agents break software in subtle, catastrophic ways:
+- **Collateral Deletion**: An agent updates a database connection string in a config file, but accidentally deletes a JWT secret or port configuration.
+- **Contract Violations**: An agent refactors a utility function to add new behavior, but violates existing function signatures or deletes critical helper methods.
+- **Silent Regressions**: Unlike human engineers who rely on established CI test suites, agent mistakes often disappear into terminal scrollback or logs. When model weights, system prompts, or tool schemas update, developers have no systematic way of knowing if previously solved failures have resurfaced.
 
-**Aftermath** is not another coding chatbot. It is a reliability and regression testing harness that:
-1. Executes agents inside an isolated sandbox with safe, controlled tools.
-2. Evaluates actual changes against explicit assertions and non-negotiable invariants.
-3. Automatically captures complete failure traces and diffs.
-4. Generates reusable regression test suites with dual positive/negative ground truth validation.
-5. Runs the same tests across multiple models (e.g., **Gemma 4** and **Mistral Apache-2.0**) to benchmark regression resistance.
-6. Presents results through rich CLI reports and a clean Web Dashboard built following the design directives of [tasteskill.dev](https://www.tasteskill.dev/) and [impeccable.style](https://impeccable.style/).
+**Aftermath** is not another coding chatbot or prompt playground. It is an industrial-grade reliability and regression testing harness designed specifically for autonomous AI agents.
 
 ---
 
-## Architecture Overview
+## System Architecture
+
+Aftermath separates agent interaction, execution sandboxing, deterministic invariant evaluation, and test synthesis into modular, decoupled layers:
 
 ```mermaid
 flowchart TD
-    subgraph Interfaces ["User Interfaces"]
-        CLI["CLI (aftermath run / compare / generate-test / ui)"]
-        Dashboard["Interactive Web Dashboard (FastAPI + Impeccable Style UI)"]
+    subgraph Interfaces ["1. User Interfaces"]
+        CLI["Rich CLI Suite (run / reproduce / compare / generate-test / ui)"]
+        Dashboard["TermUI Web Dashboard (FastAPI + Matrix Rain + Follower Cursor)"]
     end
 
-    subgraph CoreEngine ["Aftermath Core Testing Engine"]
-        TaskDef["Task Specification Loader (YAML / JSON)"]
-        Sandbox["Isolated Sandbox (Filesystem Guard & Safe Tools)"]
-        AssertionEngine["Deterministic Assertion Engine (Invariants & AST Checks)"]
-        TraceRecorder["Trace Recorder (RunTrace, Steps, Workspace Diffs)"]
-        Generator["Regression Test Generator (Dual Ground-Truth Validator)"]
-        Reporter["Reporter (Rich CLI Tables & Matrix Exporters)"]
+    subgraph Sandboxes ["2. Dual Sandbox Runtime Layer"]
+        LocalSB["Local Filesystem Sandbox (tempfile + Path Traversal Guards)"]
+        E2BSB["E2B Cloud Sandbox (Firecracker Linux Micro-VMs + POSIX Runtime)"]
     end
 
-    subgraph Adapters ["Model Adapters"]
-        GemmaAdapter["Gemma 4 Adapter (Google API Primary + Ollama Fallback)"]
+    subgraph AgentLayer ["3. Multi-Model Adapter Ecosystem"]
+        GemmaAdapter["Gemma 4 Adapter (Google API Primary + Ollama Local Fallback)"]
         MistralAdapter["Mistral Adapter (open-mistral-7b, Apache-2.0)"]
-        MockAdapter["Deterministic Mock Adapter (Buggy & Fixed Modes)"]
+        MockAdapter["Deterministic Mock Adapter (mock-buggy & mock-fixed)"]
+    end
+
+    subgraph CoreEngine ["4. Deterministic Core Evaluation Engine"]
+        TaskDef["Task Specification Loader (YAML / JSON Schema)"]
+        ToolHarness["Safe Tool Harness (read, write, edit, list, run_command)"]
+        AssertionEngine["Assertion & Invariant Evaluator (AST, Exit Codes, Output)"]
+        DiffEngine["Unified Diff & Bytecode Filter Engine (_is_ignored)"]
+        TraceRecorder["Trace Recorder (RunTrace, Step History, Snapshots)"]
+        Generator["Regression Test Generator (Dual Ground-Truth Validator)"]
     end
 
     CLI --> TaskDef
     Dashboard --> TaskDef
-    TaskDef --> Sandbox
-    Sandbox --> Adapters
-    Adapters --> Sandbox
-    Sandbox --> AssertionEngine
-    AssertionEngine --> TraceRecorder
+    TaskDef --> Sandboxes
+    Sandboxes --> ToolHarness
+    ToolHarness <--> AgentLayer
+    ToolHarness --> AssertionEngine
+    AssertionEngine --> DiffEngine
+    DiffEngine --> TraceRecorder
     TraceRecorder --> Generator
-    TraceRecorder --> Reporter
-    Reporter --> CLI
-    Reporter --> Dashboard
+    TraceRecorder --> CLI
+    TraceRecorder --> Dashboard
 ```
 
 ---
 
-## Key Features
+## Detailed Architectural Components
 
-- **Isolated Sandbox Execution**: Runs agents in a temporary directory sandbox with strict path traversal guards. Agents can only call restricted tools (`read_file`, `write_file`, `edit_file`, `list_files`). No arbitrary shell commands or open network calls are permitted in the test environment.
-- **Deterministic Assertion & Invariant Engine**: Assertions check intended outcomes (`json_value_equals`, `file_contains`, `exact_content`, `ast_syntax_valid`), while Invariants enforce preserved state (`json_key_preserved`, `file_preserves`).
-- **Automated Regression Test Generator**: When a failure is detected, Aftermath synthesizes a new regression test and validates it:
-  - *Negative Validation*: The generated test MUST fail against the recorded failing state.
-  - *Positive Validation*: The generated test MUST pass against a known-correct ground truth.
-- **Dual-Engine Gemma 4 Support**: Automatically benchmarks speed and uses Google API as primary (~2.4s) with local Ollama (`gemma4:12b`, ~7.5s) as seamless fallback.
-- **Apache-2.0 Mistral Integration**: Fully verified integration with `open-mistral-7b` via Mistral API.
-- **Deterministic Mock Agents**: Scripted `mock-buggy` and `mock-fixed` adapters for CI pipelines without network dependencies or token cost.
-- **Taste & Impeccable Styled Web UI**: Restrained, architectural UI built with Albert Sans & JetBrains Mono typography, deep charcoal surfaces, whisper borders, and zero neon purple gradient slop.
+### 1. Dual Sandbox Runtime Layer
+
+Aftermath supports two execution backends selectable via configuration or `--backend [local|e2b]`:
+
+#### A. E2B Cloud Sandbox (Firecracker Linux Micro-VM)
+- **Engine**: Powered by `e2b>=1.0.0` and hardware-isolated Firecracker micro-VMs.
+- **Security & Isolation**: Agent code and shell executions run entirely in a secure remote Linux VM, protecting host workstations from unconstrained agent code.
+- **Live Test Execution**: Supports arbitrary command execution via `sb.run_command(cmd)`. Common test utilities (`pytest`, `python -m unittest`, build scripts) run directly in POSIX Linux micro-VM environments.
+- **Automated Provisioning**: Workspace fixtures are uploaded to `/home/user/workspace`, missing runtime packages (e.g., `pytest`) are verified and auto-installed on boot, and non-zero exit codes are safely captured without crashing runner pipelines.
+- **Fast Lifecycle**: Micro-VMs initialize in sub-seconds and are terminated immediately upon completion of the test run.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Developer / Web UI
+    participant Harness as Aftermath Runner
+    participant E2B as E2B Firecracker Micro-VM
+    participant Agent as LLM Agent (Mock/Gemma/Mistral)
+    participant Evaluator as Invariant Engine
+
+    Dev->>Harness: aftermath run task.yaml --backend e2b
+    Harness->>E2B: Sandbox.create(api_key=E2B_API_KEY)
+    Harness->>E2B: Seed workspace files & verify pytest installation
+    loop Multi-Step Agent Tool Loop
+        Harness->>Agent: Prompt with Instruction & History
+        Agent->>Harness: Tool Call (read/write/run_command)
+        Harness->>E2B: Execute tool / run command inside Linux VM
+        E2B-->>Harness: Return file content / command exit_code & stdout
+        Harness-->>Agent: Tool execution result
+    end
+    Harness->>Evaluator: Evaluate Assertions & Invariants inside VM
+    Evaluator->>E2B: Run pytest / check AST syntax / verify files
+    E2B-->>Evaluator: Test outcome (exit code 0 vs non-zero)
+    Evaluator->>Harness: Compile RunTrace & Unified Diff
+    Harness-->>Dev: Display TermUI Matrix & Save Trace
+```
+
+#### B. Local Filesystem Sandbox
+- **Engine**: Ephemeral temporary directories created via Python's `tempfile.TemporaryDirectory`.
+- **Security Guardrails**: Every file operation (`read_file`, `write_file`, `edit_file`, `list_files`) resolves paths through `_resolve_safe(path)`. Paths attempting directory traversal (`../` escaping the sandbox root) trigger an immediate `SecurityViolationError`.
+- **Cross-Platform Compatibility**: Automatically translates POSIX commands (such as `python3`) to platform-specific executables on Windows environments.
+
+---
+
+### 2. Deterministic Assertion & Invariant Engine
+
+Pass/fail decisions in Aftermath are strictly deterministic to eliminate LLM evaluation flakiness.
+
+```mermaid
+flowchart LR
+    subgraph Outcomes ["Expected Outcomes"]
+        direction TB
+        A["Assertions (Target Goal)"] --> A1["file_contains"]
+        A --> A2["json_value_equals"]
+        A --> A3["exact_content"]
+        A --> A4["command_exit_code"]
+        A --> A5["command_stdout_contains"]
+
+        I["Invariants (Must Not Break)"] --> I1["json_key_preserved"]
+        I --> I2["file_preserves"]
+        I --> I3["ast_syntax_valid"]
+        I --> I4["command_exit_code (Regression Tests)"]
+    end
+```
+
+- **Target Assertions**: Verify that the agent accomplished the primary requested change (e.g., `verify_api_key` added, or new database URL configured).
+- **Non-Negotiable Invariants**: Guarantee that preexisting functionality was not destroyed (e.g., existing unit tests still exit with code `0`, AST remains parseable Python syntax, existing JSON keys remain intact).
+- **AST Syntax Checking**: Parses modified Python files via `ast.parse()` to catch broken syntax trees before files ever reach execution.
+- **Clean Diff Engine**: Filters out Python bytecode (`__pycache__`, `.pyc`, `.pytest_cache`) to ensure diffs and snapshots represent pure source code modifications.
+
+---
+
+### 3. Automated Regression Test Generator (Dual Ground-Truth Validation)
+
+When an agent violates an invariant, Aftermath does not just log an error—it synthesizes a permanent, reproducible regression test suite:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Failing Agent
+    participant Runner as ExecutionRunner
+    participant Trace as RunTrace (.aftermath_traces/)
+    participant Gen as RegressionTestGenerator
+    participant Suite as Generated Test (.yaml)
+
+    Agent->>Runner: Violates Invariant (e.g. deletes helper function)
+    Runner->>Trace: Save Full Step Trace & Failing Snapshot
+    Trace->>Gen: Feed Failure Trace to Generator
+    Gen->>Gen: Synthesize Invariant Assertions & Task Specification
+    Gen->>Runner: Negative Validation (Evaluate against failing snapshot)
+    Note over Gen,Runner: MUST FAIL against failure state
+    Gen->>Runner: Positive Validation (Evaluate against ground truth)
+    Note over Gen,Runner: MUST PASS against corrected state
+    Gen->>Suite: Write Validated Regression Test Suite
+```
+
+---
+
+### 4. Multi-Model Adapter Ecosystem
+
+- **Gemma 4**: Built-in speed benchmarking. Prioritizes the ultra-fast Google API (~2.4s) and automatically falls back to local Ollama (`gemma4:12b`, ~7.5s) if offline.
+- **Mistral**: Verified integration with `open-mistral-7b` (Apache-2.0).
+- **Deterministic Mock Adapter**: Scriptable `mock-buggy` and `mock-fixed` agents for zero-token, sub-second testing in CI/CD pipelines.
+
+---
+
+### 5. TermUI Web Dashboard
+
+The web dashboard is styled to strictly match **[TermUI](https://www.termui.io/)**:
+- **Custom Follower Cursor**: Green glowing hover circle (`#00ff88`) with spring easing that smoothly expands and highlights interactive elements. Native OS cursor is hidden.
+- **Matrix Rain Canvas**: Real-time digital rain stream rendering Katakana and hex glyphs in the background.
+- **CRT Scanlines & Aurora Glow**: Hardware-accelerated terminal scanlines and subtle radial glow.
+- **Terminal Chrome & Crosshairs**: macOS-style window dots, bento grid cards, corner crosshairs, and live micro-VM output panels.
+
+---
+
+## Directory Structure
+
+```
+aftermath/
+├── aftermath/
+│   ├── adapters/          # LLM integrations (Gemma, Mistral, Mock)
+│   ├── core/
+│   │   ├── assertions.py  # Deterministic assertion & invariant evaluators
+│   │   ├── generator.py   # Automated regression test synthesizer
+│   │   ├── reporter.py    # Rich CLI tables & comparison formatters
+│   │   ├── runner.py      # Agent execution loop & step recorder
+│   │   ├── sandbox.py     # Local tempfile & E2B micro-VM runtime
+│   │   ├── task.py        # Pydantic schemas for tasks & invariants
+│   │   └── trace.py       # Execution trace data structures
+│   ├── ui/
+│   │   ├── server.py      # FastAPI backend
+│   │   └── static/        # TermUI CSS, Canvas matrix rain, Client app
+│   ├── cli.py             # Typer CLI application
+│   └── config.py          # Environment settings (E2B, Google, Mistral)
+├── fixtures/
+│   ├── tasks/             # Standard task definitions & E2B regression suites
+│   └── workspaces/        # Sample codebases (Auth services, Calculators, Configs)
+├── tests/                 # 16 unit & integration test suites
+├── pyproject.toml         # Dependencies (fastapi, typer, rich, e2b, pytest)
+└── README.md
+```
 
 ---
 
 ## Quickstart & Installation
 
-### 1. Clone & Install
+### 1. Installation
 
 ```bash
 git clone https://github.com/aviraL27/aftermath.git
 cd aftermath
 
-# Install in editable mode
+# Install dependencies in editable mode
 pip install -e .
 ```
 
 ### 2. Configure Environment
 
-Copy `.env.example` to `.env` and insert your API keys:
+Copy `.env.example` to `.env` and set your credentials:
 
 ```bash
 cp .env.example .env
 ```
 
 ```ini
-# .env
+# E2B Sandbox API Key (Firecracker Micro-VM Runtime)
+E2B_API_KEY=your_e2b_api_key_here
+
+# Google API Key (Gemma 4 Cloud)
 GOOGLE_API_KEY=your_google_api_key_here
+
+# Local Ollama Fallback (Optional)
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_GEMMA_MODEL=gemma4:12b
 
+# Mistral API Key (open-mistral-7b)
 MISTRAL_API_KEY=your_mistral_api_key_here
 MISTRAL_MODEL=open-mistral-7b
 ```
 
 ---
 
-## CLI Usage
+## Usage Guide
 
-### Run a Task
-
-Execute an agent against a defined task:
+### 1. Launch the TermUI Web Dashboard
 
 ```bash
-# Test with a buggy mock agent (simulates accidental config deletion)
-aftermath run fixtures/tasks/config_update_invariant.yaml --model mock-buggy
-
-# Test with a fixed agent (demonstrates preserved invariants)
-aftermath run fixtures/tasks/config_update_invariant.yaml --model mock-fixed
-
-# Test with live Mistral (open-mistral-7b)
-aftermath run fixtures/tasks/config_update_invariant.yaml --model mistral
-
-# Test with Gemma 4 (Google API primary, local Ollama fallback)
-aftermath run fixtures/tasks/config_update_invariant.yaml --model gemma4
+python -m aftermath.cli ui --port 8000
 ```
-
-### Generate a Regression Test from a Failure Trace
-
-When a run fails, Aftermath saves an execution trace in `.aftermath_traces/`. Convert that failure into a permanent regression test:
-
-```bash
-aftermath generate-test .aftermath_traces/trace_task-db-url-update_<timestamp>.json
-```
-
-The test is validated and saved as `aftermath/generated_tests/regression_<id>.yaml`.
-
-### Cross-Model Comparison
-
-Run the same task against multiple models and compare traces, invariants, and step counts:
-
-```bash
-aftermath compare fixtures/tasks/config_update_invariant.yaml --models gemma4,mistral
-```
-
-### Launch Interactive Web Dashboard
-
-Launch the local interactive UI:
-
-```bash
-aftermath ui --port 8000
-```
-Open `http://localhost:8000` to inspect task suites, trace timelines, diff views, and run comparisons.
+Open **[http://localhost:8000](http://localhost:8000)** in your browser:
+- Click **Live E2B Demo** to spin up an E2B micro-VM, run the agent, and stream live `pytest` test results.
+- Click **Compare Models** to benchmark `mock-buggy` vs `mock-fixed` across isolated micro-VMs.
+- Click **Generate Regression Test** to synthesize a test suite from any invariant violation.
 
 ---
 
-## Defining a Task
+### 2. Command Line Interface (CLI)
 
-Tasks are written in simple YAML:
+#### Execute a Task in an E2B Micro-VM
+```bash
+# Run fixed agent in E2B (Passes test suite)
+python -m aftermath.cli run fixtures/tasks/e2b_service_regression_test.yaml --model mock-fixed --backend e2b
+
+# Run buggy agent in E2B (Catches invariant violation)
+python -m aftermath.cli run fixtures/tasks/e2b_service_regression_test.yaml --model mock-buggy --backend e2b
+```
+
+#### Reproduce a Recorded Failure
+```bash
+python -m aftermath.cli reproduce .aftermath_traces/trace_e2b-auth-service-regression_<trace_id>.json
+```
+
+#### Compare Models Side-by-Side
+```bash
+python -m aftermath.cli compare fixtures/tasks/e2b_service_regression_test.yaml --models mock-buggy,mock-fixed --backend e2b
+```
+
+#### Generate a Regression Test from a Failure Trace
+```bash
+python -m aftermath.cli generate-test .aftermath_traces/trace_task-add-power-function_<trace_id>.json
+```
+
+---
+
+## Defining a Task Specification
+
+Tasks are declared in structured YAML:
 
 ```yaml
-id: "task-db-url-update"
-name: "Update database URL preserving critical invariants"
-description: "Verify that the agent updates the database URL without deleting other settings."
-instruction: "Please update the database URL in config/app.json to 'postgresql://prod-db:5432/app'. Do not modify or remove any other settings."
-workspace_fixture: "../workspaces/config_sample"
-max_steps: 6
+id: e2b-auth-service-regression
+name: E2B Cloud Sandbox - Auth Service Regression Test
+description: Evaluates an agent modifying an authentication service inside a secure E2B Linux Micro-VM.
+instruction: "In auth.py, add a function 'def verify_api_key(key: str) -> bool:' that returns True if key begins with 'ak_live_' and False otherwise. Do not modify or remove existing token validation or role permission functions."
+workspace_fixture: ../workspaces/e2b_service_sample
+sandbox_backend: e2b
 tools:
-  - "read_file"
-  - "write_file"
-  - "edit_file"
-  - "list_files"
+  - read_file
+  - write_file
+  - edit_file
+  - list_files
+  - run_command
+max_steps: 10
 expected_outcomes:
   assertions:
-    - type: "file_exists"
-      path: "config/app.json"
-    - type: "json_value_equals"
-      path: "config/app.json"
-      key_path: "database.url"
-      expected: "postgresql://prod-db:5432/app"
+    - type: file_contains
+      path: auth.py
+      expected: "def verify_api_key(key: str) -> bool:"
+      description: "verify_api_key function defined in auth.py"
+    - type: command_exit_code
+      command: "pytest test_auth.py"
+      expected: 0
+      description: "Full test suite passes via pytest in E2B micro-VM"
   invariants:
-    - type: "json_key_preserved"
-      path: "config/app.json"
-      key_path: "server.port"
-      expected: 8080
-    - type: "json_key_preserved"
-      path: "config/app.json"
-      key_path: "security.jwt_secret"
-      expected: "super-secret-key-do-not-delete-or-modify"
+    - type: command_exit_code
+      command: "pytest test_auth.py -k test_token_validation_live"
+      expected: 0
+      description: "Existing token validation invariant preserved"
+    - type: ast_syntax_valid
+      path: auth.py
+      description: "auth.py remains valid Python syntax"
 ```
 
 ---
 
-## Automated Tests
+## Automated Verification
 
-Run the full pytest suite:
+Run the full automated test suite (16 tests covering sandboxing, E2B commands, generator, and model adapters):
 
 ```bash
 pytest -v
 ```
 
-The test suite includes:
-- Sandbox isolation and directory traversal security.
-- Deterministic assertions and invariant checking.
-- Mock agent failure and success execution.
-- Automated regression test generation and dual ground-truth validation.
-- End-to-end full regression lifecycle verification.
-
----
-
-## Limitations & Security
-
-1. **Controlled Sandbox**: In the MVP, agents are strictly sandboxed and provided with non-destructive, scoped file tools (`read_file`, `write_file`, `edit_file`, `list_files`). Arbitrary bash/powershell commands and outbound network calls from inside the agent workspace are deliberately not permitted.
-2. **Deterministic Assertions**: While AI models can suggest tests, all pass/fail decisions in Aftermath are strictly deterministic to eliminate LLM evaluation flakiness.
-3. **Secret Protection**: API keys are loaded via environment variables and never logged or included in saved trace snapshots.
-
 ---
 
 ## License
 
-Aftermath is licensed under the [Apache License, Version 2.0](LICENSE).
+Aftermath is open-source software licensed under the [Apache License, Version 2.0](LICENSE).

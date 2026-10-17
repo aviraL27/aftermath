@@ -25,10 +25,12 @@ class RunRequest(BaseModel):
     task_file: str
     model: str = "mock-buggy"
     provider: Optional[str] = None
+    backend: Optional[str] = None
 
 class CompareRequest(BaseModel):
     task_file: str
     models: List[str] = ["gemma4", "mistral"]
+    backend: Optional[str] = None
 
 class GenerateTestRequest(BaseModel):
     trace_data: Dict[str, Any]
@@ -50,13 +52,15 @@ def _resolve_adapter(model_name: str, provider: Optional[str] = None):
 def get_system_status():
     """Returns connectivity and availability of configured models and providers."""
     return {
+        "e2b_configured": bool(settings.get_e2b_key()),
         "google_api_configured": bool(settings.get_google_key()),
         "mistral_api_configured": bool(settings.mistral_api_key),
         "ollama_base_url": settings.ollama_base_url,
         "ollama_gemma_model": settings.ollama_gemma_model,
         "mistral_model": settings.mistral_model,
         "gemma_primary": "google (2.4s benchmarked)",
-        "gemma_fallback": "ollama local (7.5s benchmarked)"
+        "gemma_fallback": "ollama local (7.5s benchmarked)",
+        "e2b_runtime": "Firecracker Linux Micro-VM (Active)" if settings.get_e2b_key() else "Inactive"
     }
 
 @app.get("/api/tasks")
@@ -71,6 +75,8 @@ def list_tasks():
                 "id": td.id,
                 "name": td.name,
                 "description": td.description,
+                "instruction": td.instruction,
+                "sandbox_backend": td.sandbox_backend,
                 "file_path": tf.replace("\\", "/"),
                 "is_regression_test": td.is_regression_test,
                 "validated": td.validated,
@@ -90,6 +96,9 @@ def run_task(req: RunRequest):
         raise HTTPException(status_code=404, detail=f"Task file not found: {req.task_file}")
     
     task = TaskDefinition.load(p)
+    if req.backend:
+        task.sandbox_backend = req.backend.lower()
+
     adapter = _resolve_adapter(req.model, req.provider)
     runner = ExecutionRunner(task, adapter)
     trace = runner.run()
@@ -110,6 +119,9 @@ def compare_task(req: CompareRequest):
         raise HTTPException(status_code=404, detail=f"Task file not found: {req.task_file}")
     
     task = TaskDefinition.load(p)
+    if req.backend:
+        task.sandbox_backend = req.backend.lower()
+
     traces = []
     for m in req.models:
         adapter = _resolve_adapter(m)

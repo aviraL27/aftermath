@@ -3,22 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aftermath — AI Agent Regression Testing Harness</title>
+  <title>Aftermath - AI Agent Regression Testing Harness | TermUI</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- TermUI Custom Cursor (Green Hover Circle) -->
+  <div class="cursor-ring" id="cursor-ring"></div>
+
+  <!-- Ambient Matrix Rain & CRT Scanlines -->
+  <canvas class="matrix-rain" id="matrix-rain"></canvas>
+  <div class="scanlines-overlay"></div>
+  <div class="aurora-glow"></div>
+
   <div class="app-container">
-    <!-- Top Navigation Bar -->
+    <!-- Top Navigation Bar (TermUI Capsule Style) -->
     <header class="top-nav">
       <div class="brand-section">
-        <div class="brand-mark">AM</div>
-        <div class="brand-title">Aftermath</div>
-        <span class="brand-tag">Agent Reliability Harness</span>
-      </div>
-
-      <div class="system-status-pills" id="system-status-container">
-        <div class="status-pill active" id="status-gemma">Gemma 4: Google API (2.4s) / Ollama Fallback</div>
-        <div class="status-pill active" id="status-mistral">Mistral: open-mistral-7b (Apache-2.0)</div>
+        <a class="nav-boot-logo" href="/">
+          <span class="logo-prompt">&gt;_</span>
+          <span class="logo-name">Aftermath</span>
+          <span class="logo-cursor"></span>
+        </a>
+        <span class="brand-tag">v0.2.0 · E2B Micro-VM Runtime</span>
       </div>
     </header>
 
@@ -27,10 +33,13 @@
       <!-- Sidebar / Tasks List -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <div class="section-label">Test Tasks & Suites</div>
+          <div class="shell-prompt-title">
+            <span>$ ls ./test-suites</span>
+          </div>
+          <span style="color:var(--text-muted); font-size:11px;" id="tasks-count">0 tasks</span>
         </div>
         <div class="task-list" id="task-list-container">
-          <div style="padding: 1rem; color: var(--text-muted); font-size: 12px;">Loading tasks...</div>
+          <div style="padding: 1rem; color: var(--text-muted); font-size: 12px;">Loading test suites...</div>
         </div>
       </aside>
 
@@ -39,18 +48,25 @@
         <!-- Control Bar -->
         <div class="control-bar">
           <div class="controls-group">
-            <label class="section-label" style="margin-right: 4px;">Agent / Model:</label>
+            <span class="control-label">Sandbox:</span>
+            <select class="select-control" id="backend-select">
+              <option value="e2b" selected>E2B Cloud Micro-VM (Firecracker Linux)</option>
+              <option value="local">Local Filesystem (tempfile sandbox)</option>
+            </select>
+
+            <span class="control-label" style="margin-left: 8px;">Agent:</span>
             <select class="select-control" id="model-select">
-              <option value="gemma4">Gemma 4 (Auto: Google API / Ollama Fallback)</option>
-              <option value="mistral">Mistral (open-mistral-7b, Apache-2.0)</option>
-              <option value="mock-buggy" selected>Mock Agent (Buggy — Reproduces Invariant Violation)</option>
+              <option value="mock-buggy" selected>Mock Agent (Buggy — Violates Invariants)</option>
               <option value="mock-fixed">Mock Agent (Fixed — Invariants Preserved)</option>
+              <option value="gemma4">Gemma 4 (Google API / Ollama)</option>
+              <option value="mistral">Mistral (open-mistral-7b)</option>
             </select>
           </div>
 
           <div class="controls-group">
-            <button class="btn btn-secondary" id="btn-compare">Cross-Model Compare</button>
-            <button class="btn btn-primary" id="btn-run">Execute Task</button>
+            <button class="btn btn-cyan" id="btn-demo-e2b" title="Run live E2B cloud micro-VM test with pytest execution">Live E2B Demo</button>
+            <button class="btn btn-secondary" id="btn-compare">Compare Models</button>
+            <button class="btn btn-primary" id="btn-run">&gt;_ Execute Task</button>
           </div>
         </div>
 
@@ -58,40 +74,76 @@
         <div class="content-grid" id="main-content">
           <!-- Active Task Card -->
           <div class="panel">
+            <span class="corner-accent corner-tl"></span>
+            <span class="corner-accent corner-tr"></span>
+            <span class="corner-accent corner-bl"></span>
+            <span class="corner-accent corner-br"></span>
             <div class="panel-header">
-              <div class="panel-title" id="active-task-name">Select a Task to Begin</div>
-              <span class="badge-status" id="task-badge" style="display:none;">Regression Test</span>
+              <div class="panel-header-left">
+                <div class="window-dots">
+                  <span class="wdot red"></span>
+                  <span class="wdot yellow"></span>
+                  <span class="wdot green"></span>
+                </div>
+                <div class="panel-title" id="active-task-name">Select a Task to Begin</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <span class="badge-tag e2b" id="active-task-backend">E2B</span>
+                <span class="badge-status pass" id="task-badge" style="display:none;">Regression Test</span>
+              </div>
             </div>
             <div class="panel-body">
-              <div id="active-task-desc" style="color: var(--text-secondary); margin-bottom: 12px;">
-                Choose a task from the sidebar to inspect its instructions and invariants.
+              <div id="active-task-desc" style="color: var(--text-dim); margin-bottom: 12px; font-size:12.5px;">
+                Choose a task from the sidebar or click 'Live E2B Demo' to execute a live test inside an E2B micro-VM.
               </div>
-              <div class="section-label" style="margin-bottom: 6px;">Instruction to Agent</div>
-              <div class="code-box" id="active-task-instruction" style="margin-bottom: 1rem;">-</div>
+              <div style="color: var(--accent); font-size: 11px; margin-bottom: 6px; font-weight: 600;">$ cat instruction.txt</div>
+              <div class="code-box" id="active-task-instruction" style="margin-bottom: 0.5rem;">-</div>
             </div>
           </div>
 
           <!-- Execution Result & Evaluation Panel -->
           <div class="panel" id="result-panel" style="display: none;">
+            <span class="corner-accent corner-tl"></span>
+            <span class="corner-accent corner-tr"></span>
+            <span class="corner-accent corner-bl"></span>
+            <span class="corner-accent corner-br"></span>
             <div class="panel-header">
-              <div class="panel-title">Execution Evaluation & Invariants</div>
+              <div class="panel-header-left">
+                <div class="window-dots">
+                  <span class="wdot red"></span>
+                  <span class="wdot yellow"></span>
+                  <span class="wdot green"></span>
+                </div>
+                <div class="panel-title">Evaluation & Invariants Matrix</div>
+              </div>
               <div style="display:flex; gap:10px; align-items:center;">
                 <span class="badge-status" id="run-status-badge">FAILED</span>
-                <button class="btn btn-primary" id="btn-generate-test" style="padding: 4px 10px; font-size: 11px;">Generate Regression Test</button>
+                <button class="btn btn-primary" id="btn-generate-test" style="padding: 4px 12px; font-size: 11px;">Generate Regression Test</button>
               </div>
             </div>
             <div class="panel-body">
-              <div id="generate-message" style="margin-bottom: 12px; font-size: 12px; display: none;"></div>
-              <div class="section-label" style="margin-bottom: 8px;">Assertions & Invariants Matrix</div>
+              <div id="generate-message" style="margin-bottom: 12px; font-size: 12px; display: none; padding: 8px 12px; border-radius: 4px; background: rgba(0, 255, 136, 0.08); border: 1px solid var(--border-terminal);"></div>
+              <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 8px; text-transform: uppercase; letter-spacing:0.05em;">Invariant Checklist</div>
               <div class="assertions-list" id="assertions-container"></div>
             </div>
           </div>
 
           <!-- Workspace Unified Diff -->
           <div class="panel" id="diff-panel" style="display: none;">
+            <span class="corner-accent corner-tl"></span>
+            <span class="corner-accent corner-tr"></span>
+            <span class="corner-accent corner-bl"></span>
+            <span class="corner-accent corner-br"></span>
             <div class="panel-header">
-              <div class="panel-title">Workspace Changes (Unified Diff)</div>
-              <span class="section-label" id="diff-summary">0 lines changed</span>
+              <div class="panel-header-left">
+                <div class="window-dots">
+                  <span class="wdot red"></span>
+                  <span class="wdot yellow"></span>
+                  <span class="wdot green"></span>
+                </div>
+                <div class="panel-title">$ git diff --unified</div>
+              </div>
+              <span style="color:var(--text-muted); font-size:11px;" id="diff-summary">0 lines changed</span>
             </div>
             <div class="panel-body" style="padding: 0;">
               <div class="code-box" id="diff-content" style="border: none; border-radius: 0; max-height: 280px;"></div>
@@ -100,17 +152,39 @@
 
           <!-- Execution Step Trace -->
           <div class="panel" id="trace-panel" style="display: none;">
+            <span class="corner-accent corner-tl"></span>
+            <span class="corner-accent corner-tr"></span>
+            <span class="corner-accent corner-bl"></span>
+            <span class="corner-accent corner-br"></span>
             <div class="panel-header">
-              <div class="panel-title">Agent Execution Trace Timeline</div>
-              <span class="section-label" id="trace-duration">0.00s</span>
+              <div class="panel-header-left">
+                <div class="window-dots">
+                  <span class="wdot red"></span>
+                  <span class="wdot yellow"></span>
+                  <span class="wdot green"></span>
+                </div>
+                <div class="panel-title">Agent Execution Timeline</div>
+              </div>
+              <span style="color:var(--text-muted); font-size:11px;" id="trace-duration">0.00s</span>
             </div>
             <div class="panel-body" id="trace-steps-container" style="padding: 0;"></div>
           </div>
 
-          <!-- Cross-Model Comparison Matrix Modal / Panel -->
+          <!-- Cross-Model Comparison Matrix -->
           <div class="panel" id="compare-panel" style="display: none;">
+            <span class="corner-accent corner-tl"></span>
+            <span class="corner-accent corner-tr"></span>
+            <span class="corner-accent corner-bl"></span>
+            <span class="corner-accent corner-br"></span>
             <div class="panel-header">
-              <div class="panel-title">Cross-Model Comparison: Gemma 4 vs Mistral</div>
+              <div class="panel-header-left">
+                <div class="window-dots">
+                  <span class="wdot red"></span>
+                  <span class="wdot yellow"></span>
+                  <span class="wdot green"></span>
+                </div>
+                <div class="panel-title">Cross-Model Comparison Matrix</div>
+              </div>
             </div>
             <div class="panel-body" id="compare-container"></div>
           </div>
@@ -122,4 +196,3 @@
   <script src="/static/app.js"></script>
 </body>
 </html>
-

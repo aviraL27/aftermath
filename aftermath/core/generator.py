@@ -57,6 +57,9 @@ class RegressionTestGenerator:
             for inv_data in trace.invariant_results:
                 outcomes.invariants.append(AssertionSpec(**inv_data["spec"]))
 
+        tools = list(task_def.tools) if task_def else ["read_file", "write_file", "edit_file", "list_files", "run_command"]
+        backend = task_def.sandbox_backend if task_def else "local"
+
         # Build regression task definition
         reg_task = TaskDefinition(
             id=regression_id,
@@ -64,7 +67,8 @@ class RegressionTestGenerator:
             description=f"Auto-generated regression test for failure in {trace.task_id}. Ensures invariants are preserved.",
             instruction=trace.instruction,
             workspace_fixture=str(fixture_dir),
-            tools=["read_file", "write_file", "edit_file", "list_files"],
+            sandbox_backend=backend,
+            tools=tools,
             max_steps=10,
             expected_outcomes=outcomes,
             is_regression_test=True,

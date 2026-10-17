@@ -3,7 +3,20 @@ from pathlib import Path
 from typing import Optional, List
 import json
 import uvicorn
+import sys
 from rich.console import Console
+
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 from aftermath.core.task import TaskDefinition
 from aftermath.core.runner import ExecutionRunner
@@ -19,7 +32,7 @@ app = typer.Typer(
     name="aftermath",
     help="Aftermath: An open-source regression testing harness for AI agents."
 )
-console = Console()
+console = Console(legacy_windows=False)
 
 def _resolve_adapter(model_name: str, provider: Optional[str] = None):
     m = model_name.lower()
@@ -40,6 +53,7 @@ def run(
     task_file: str = typer.Argument(..., help="Path to task YAML/JSON definition file"),
     model: str = typer.Option("mock-buggy", "--model", "-m", help="Model to test (gemma4, mistral, mock-buggy, mock-fixed)"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Provider for model (google, ollama, mistral)"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Sandbox backend: local or e2b"),
     save_trace: Optional[str] = typer.Option(None, "--save-trace", "-s", help="Path to save execution trace JSON"),
 ):
     """Execute an agent against a task and detect any regression or invariant violation."""
@@ -49,9 +63,12 @@ def run(
         raise typer.Exit(code=1)
 
     task = TaskDefinition.load(task_p)
+    if backend:
+        task.sandbox_backend = backend.lower() # type: ignore
+
     adapter = _resolve_adapter(model, provider)
 
-    console.print(f"[bold cyan]Aftermath:[/bold cyan] Running task '{task.name}' with model '{adapter.name}'...")
+    console.print(f"[bold cyan]Aftermath:[/bold cyan] Running task '{task.name}' with model '{adapter.name}' on [bold green]{task.sandbox_backend.upper()}[/bold green] sandbox...")
     runner = ExecutionRunner(task, adapter)
     trace = runner.run()
 
@@ -72,6 +89,7 @@ def run(
 def compare(
     task_file: str = typer.Argument(..., help="Path to task YAML/JSON file"),
     models: str = typer.Option("gemma4,mistral", "--models", "-m", help="Comma-separated list of models to compare"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Sandbox backend: local or e2b"),
 ):
     """Run the same task across multiple models and compare traces and invariants."""
     task_p = Path(task_file).resolve()
@@ -80,12 +98,15 @@ def compare(
         raise typer.Exit(code=1)
 
     task = TaskDefinition.load(task_p)
+    if backend:
+        task.sandbox_backend = backend.lower() # type: ignore
+
     model_list = [m.strip() for m in models.split(",") if m.strip()]
 
     traces = []
     for m in model_list:
         adapter = _resolve_adapter(m)
-        console.print(f"[cyan]Running test against:[/cyan] [bold]{adapter.name}[/bold] ({adapter.provider})...")
+        console.print(f"[cyan]Running test against:[/cyan] [bold]{adapter.name}[/bold] ({adapter.provider}) on {task.sandbox_backend.upper()}...")
         runner = ExecutionRunner(task, adapter)
         trace = runner.run()
         traces.append(trace)
@@ -96,6 +117,7 @@ def compare(
 def reproduce(
     trace_file: str = typer.Argument(..., help="Path to saved RunTrace JSON"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override model for reproduction run"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Sandbox backend override: local or e2b"),
 ):
     """Reproduce a failure from a saved run trace."""
     tp = Path(trace_file).resolve()
@@ -110,16 +132,43 @@ def reproduce(
     target_model = model or trace.model_name
     adapter = _resolve_adapter(target_model, trace.provider)
 
-    # Reconstruct temporary task definition
+    from aftermath.core.task import ExpectedOutcomes, AssertionSpec
+    outcomes = ExpectedOutcomes(
+        assertions=[AssertionSpec(**a["spec"]) for a in trace.assertion_results],
+        invariants=[AssertionSpec(**inv["spec"]) for inv in trace.invariant_results]
+    )
+
+    # Reconstruct fixture workspace from snapshot
+    repro_dir = Path(".aftermath_repro") / f"repro_{trace.task_id}_{int(trace.start_time)}"
+    repro_dir.mkdir(parents=True, exist_ok=True)
+    for rel_path, content in trace.initial_snapshot.items():
+        dest = repro_dir / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+
+    chosen_backend = (backend or "local").lower()
+
+    # Reconstruct task definition
     task = TaskDefinition(
         id=f"repro_{trace.task_id}",
         name=f"Reproduction of {trace.task_name}",
         instruction=trace.instruction,
-        workspace_fixture="",  # Will load snapshot
-        expected_outcomes=task.expected_outcomes if 'task' in locals() else None # type: ignore
+        workspace_fixture=str(repro_dir),
+        sandbox_backend=chosen_backend, # type: ignore
+        expected_outcomes=outcomes
     )
-    # Rerun
-    Reporter.render_run_report(trace)
+
+    runner = ExecutionRunner(task, adapter)
+    repro_trace = runner.run()
+    Reporter.render_run_report(repro_trace)
+
+    if repro_trace.status == trace.status:
+        console.print(f"[bold green]Reproduction Verified:[/bold green] Re-execution faithfully reproduced original '{trace.status}' state.")
+    else:
+        console.print(f"[bold yellow]Divergence Observed:[/bold yellow] Original status was '{trace.status}', re-execution produced '{repro_trace.status}'.")
+
+    if repro_trace.status != "PASSED":
+        raise typer.Exit(code=1)
 
 @app.command()
 def generate_test(
